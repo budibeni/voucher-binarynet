@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as SQLite from 'expo-sqlite';
+import { getDb } from '../database/db';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS, FONT_SIZE } from '../theme';
 
-const DB_SOURCE = `${FileSystem.documentDirectory}SQLite/binarynet.db`;
 const BACKUP_DEST = `${FileSystem.documentDirectory}binarynet_backup.db`;
 
 export default function BackupScreen() {
@@ -18,13 +19,32 @@ export default function BackupScreen() {
   const handleBackup = async () => {
     setLoading(true);
     try {
-      const sourceInfo = await FileSystem.getInfoAsync(DB_SOURCE);
+      // 1. Ambil koneksi DB dan path aktual
+      const db = await getDb();
+      
+      // Ambil direktori standar expo-sqlite
+      const dbDir = SQLite.defaultDatabaseDirectory || `${FileSystem.documentDirectory}SQLite`;
+      let dbPath = `${dbDir}/binarynet.db`;
+
+      // Pastikan dbPath memiliki prefix file:// untuk expo-file-system di Android
+      if (!dbPath.startsWith('file://')) {
+        dbPath = `file://${dbPath}`;
+      }
+
+      // 2. Checkpoint WAL — flush semua data dari file -wal ke file .db utama
+      //    agar file .db bisa dicopy sebagai backup yang lengkap
+      await db.execAsync('PRAGMA wal_checkpoint(FULL);');
+
+      // 3. Cek apakah file .db ada setelah checkpoint
+      const sourceInfo = await FileSystem.getInfoAsync(dbPath);
       if (!sourceInfo.exists) {
-        Alert.alert('Error', 'File database tidak ditemukan.');
+        // Coba path alternatif (tanpa subdirektori SQLite)
+        Alert.alert('Error', `File database tidak ditemukan.\nPath: ${dbPath}`);
         return;
       }
 
-      await FileSystem.copyAsync({ from: DB_SOURCE, to: BACKUP_DEST });
+      // 4. Copy file .db ke destinasi backup
+      await FileSystem.copyAsync({ from: dbPath, to: BACKUP_DEST });
 
       const destInfo = await FileSystem.getInfoAsync(BACKUP_DEST);
       const sizeKB = (destInfo.size / 1024).toFixed(1);
@@ -43,7 +63,7 @@ export default function BackupScreen() {
       }
     } catch (error) {
       console.error('Backup error:', error);
-      Alert.alert('Error', 'Gagal membuat backup');
+      Alert.alert('Error', `Gagal membuat backup:\n${error.message}`);
     } finally {
       setLoading(false);
     }

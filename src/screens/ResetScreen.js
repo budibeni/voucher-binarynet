@@ -3,7 +3,7 @@ import { View, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-nat
 import { Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { openDb } from '../database/db';
+import { getDb } from '../database/db';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS, FONT_SIZE } from '../theme';
 
 export default function ResetScreen({ navigation }) {
@@ -30,17 +30,23 @@ export default function ResetScreen({ navigation }) {
           onPress: async () => {
             setLoading(true);
             try {
-              const db = await openDb();
-              await db.execAsync(`
-                DELETE FROM transaction_items;
-                DELETE FROM transactions;
-              `);
+              const db = await getDb();
+              // Hapus items dulu (foreign key child), baru parent
+              await db.runAsync('DELETE FROM transaction_items');
+              await db.runAsync('DELETE FROM transactions');
+              // Reset auto-increment counter
+              try {
+                await db.runAsync("DELETE FROM sqlite_sequence WHERE name='transactions'");
+                await db.runAsync("DELETE FROM sqlite_sequence WHERE name='transaction_items'");
+              } catch (seqError) {
+                console.log('Ignored sequence error:', seqError);
+              }
               Alert.alert('Selesai', 'Semua data transaksi berhasil dihapus.', [
                 { text: 'OK', onPress: () => navigation.popToTop() }
               ]);
             } catch (e) {
               console.error('Reset error:', e);
-              Alert.alert('Error', 'Gagal mereset data');
+              Alert.alert('Error', `Gagal mereset data:\n${e.message}`);
             } finally {
               setLoading(false);
             }

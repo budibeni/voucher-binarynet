@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { openDb } from '../database/db';
+import { getDb } from '../database/db';
 
 export const useVouchers = () => {
   const [vouchers, setVouchers] = useState([]);
@@ -8,7 +8,7 @@ export const useVouchers = () => {
   const loadVouchers = useCallback(async () => {
     setLoading(true);
     try {
-      const db = await openDb();
+      const db = await getDb();
       const result = await db.getAllAsync('SELECT * FROM vouchers ORDER BY harga_jual ASC');
       setVouchers(result);
     } catch (error) {
@@ -20,7 +20,7 @@ export const useVouchers = () => {
 
   const addVoucher = async (nama, harga_beli, harga_jual) => {
     try {
-      const db = await openDb();
+      const db = await getDb();
       await db.runAsync(
         'INSERT INTO vouchers (nama, harga_beli, harga_jual) VALUES (?, ?, ?)',
         [nama, harga_beli, harga_jual]
@@ -34,7 +34,7 @@ export const useVouchers = () => {
 
   const updateVoucher = async (id, nama, harga_beli, harga_jual) => {
     try {
-      const db = await openDb();
+      const db = await getDb();
       await db.runAsync(
         'UPDATE vouchers SET nama = ?, harga_beli = ?, harga_jual = ? WHERE id = ?',
         [nama, harga_beli, harga_jual, id]
@@ -48,7 +48,7 @@ export const useVouchers = () => {
 
   const deleteVoucher = async (id) => {
     try {
-      const db = await openDb();
+      const db = await getDb();
       await db.runAsync('DELETE FROM vouchers WHERE id = ?', [id]);
       await loadVouchers();
     } catch (error) {

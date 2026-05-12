@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -106,21 +106,9 @@ function PengaturanNavigator() {
 }
 
 const TAB_CONFIG = {
-  Beranda: {
-    active: 'home',
-    inactive: 'home-outline',
-    label: 'Beranda',
-  },
-  Riwayat: {
-    active: 'history',
-    inactive: 'history',
-    label: 'Riwayat',
-  },
-  Pengaturan: {
-    active: 'cog',
-    inactive: 'cog-outline',
-    label: 'Pengaturan',
-  },
+  Beranda:    { active: 'home',    inactive: 'home-outline',  label: 'Beranda'    },
+  Riwayat:   { active: 'history', inactive: 'history',       label: 'Riwayat'    },
+  Pengaturan:{ active: 'cog',     inactive: 'cog-outline',   label: 'Pengaturan' },
 };
 
 function TabIcon({ routeName, focused, color }) {
@@ -156,13 +144,31 @@ export default function AppNavigator() {
           tabBarActiveTintColor: COLORS.primary,
           tabBarInactiveTintColor: COLORS.textMuted,
           headerShown: false,
+          // Biarkan React Navigation + SafeAreaProvider menangani
+          // safe area secara otomatis — jangan set height manual
           tabBarStyle: styles.tabBar,
           tabBarItemStyle: styles.tabItem,
         })}
       >
         <Tab.Screen name="Beranda" component={BerandaScreen} />
-        <Tab.Screen name="Riwayat" component={RiwayatNavigator} />
-        <Tab.Screen name="Pengaturan" component={PengaturanNavigator} />
+        <Tab.Screen
+          name="Riwayat"
+          component={RiwayatNavigator}
+          listeners={({ navigation }) => ({
+            tabPress: (e) => {
+              navigation.navigate('Riwayat', { screen: 'RiwayatList' });
+            },
+          })}
+        />
+        <Tab.Screen
+          name="Pengaturan"
+          component={PengaturanNavigator}
+          listeners={({ navigation }) => ({
+            tabPress: (e) => {
+              navigation.navigate('Pengaturan', { screen: 'PengaturanMain' });
+            },
+          })}
+        />
       </Tab.Navigator>
     </NavigationContainer>
   );
@@ -173,8 +179,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    height: Platform.OS === 'ios' ? 85 : 64,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+    // Tidak set height — biarkan SafeAreaProvider yang menentukan
+    // padding atas tab bar content
     paddingTop: 8,
     elevation: 0,
     shadowOpacity: 0,

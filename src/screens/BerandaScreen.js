@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, ScrollView, StyleSheet, TouchableOpacity, Alert, Share,
   StatusBar, Platform, KeyboardAvoidingView,
@@ -8,6 +8,7 @@ import {
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useVouchers } from '../hooks/useVouchers';
 import { useTransactions } from '../hooks/useTransactions';
 import { formatRupiah } from '../utils/format';
@@ -25,9 +26,13 @@ export default function BerandaScreen({ navigation }) {
   const [lastTransactionText, setLastTransactionText] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadVouchers();
-  }, []);
+  // Reload vouchers setiap kali tab Beranda difokus
+  // (termasuk saat kembali dari Kelola Voucher)
+  useFocusEffect(
+    useCallback(() => {
+      loadVouchers();
+    }, [])
+  );
 
   useEffect(() => {
     const newItems = { ...items };
@@ -308,7 +313,7 @@ export default function BerandaScreen({ navigation }) {
       </ScrollView>
 
       {/* Footer */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+      <View style={[styles.footer, { paddingBottom: 20 }]}>
         {/* Grand Total */}
         <View style={styles.totalRow}>
           <View>
@@ -322,7 +327,7 @@ export default function BerandaScreen({ navigation }) {
 
         {/* Caption */}
         <TextInput
-          label="Caption / Catatan (opsional)"
+          label="Catatan (opsional)"
           value={caption}
           onChangeText={setCaption}
           mode="outlined"
@@ -651,7 +656,7 @@ const styles = StyleSheet.create({
   footer: {
     backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     ...SHADOWS.lg,
@@ -660,7 +665,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: 8,
   },
   totalLabel: {
     fontSize: FONT_SIZE.sm,
@@ -681,7 +686,7 @@ const styles = StyleSheet.create({
   },
   captionInput: {
     backgroundColor: COLORS.white,
-    marginBottom: SPACING.md,
+    marginBottom: 10,
     fontSize: FONT_SIZE.base,
   },
   captionOutline: {
@@ -697,7 +702,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: BORDER_RADIUS.lg,
     borderWidth: 1.5,
@@ -715,7 +720,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: BORDER_RADIUS.lg,
     backgroundColor: COLORS.primary,
     ...SHADOWS.sm,

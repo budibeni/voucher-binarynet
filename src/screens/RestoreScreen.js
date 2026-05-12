@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
+import * as SQLite from 'expo-sqlite';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS, FONT_SIZE } from '../theme';
-
-const DB_DEST = `${FileSystem.documentDirectory}SQLite/binarynet.db`;
 
 export default function RestoreScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -46,13 +45,23 @@ export default function RestoreScreen({ navigation }) {
           onPress: async () => {
             setLoading(true);
             try {
-              const sqliteDir = `${FileSystem.documentDirectory}SQLite`;
-              const dirInfo = await FileSystem.getInfoAsync(sqliteDir);
-              if (!dirInfo.exists) {
-                await FileSystem.makeDirectoryAsync(sqliteDir, { intermediates: true });
+              // Ambil direktori standar expo-sqlite
+              const dbDir = SQLite.defaultDatabaseDirectory || `${FileSystem.documentDirectory}SQLite`;
+              let dbPath = `${dbDir}/binarynet.db`;
+
+              // Pastikan dbPath memiliki prefix file://
+              if (!dbPath.startsWith('file://')) {
+                dbPath = `file://${dbPath}`;
               }
 
-              await FileSystem.copyAsync({ from: selectedFile.uri, to: DB_DEST });
+              // Pastikan direktori tujuan ada
+              const targetDir = dbPath.substring(0, dbPath.lastIndexOf('/'));
+              const dirInfo = await FileSystem.getInfoAsync(targetDir);
+              if (!dirInfo.exists) {
+                await FileSystem.makeDirectoryAsync(targetDir, { intermediates: true });
+              }
+
+              await FileSystem.copyAsync({ from: selectedFile.uri, to: dbPath });
 
               Alert.alert(
                 'Restore Berhasil',
@@ -61,7 +70,7 @@ export default function RestoreScreen({ navigation }) {
               );
             } catch (error) {
               console.error('Restore error:', error);
-              Alert.alert('Error', 'Gagal melakukan restore data');
+              Alert.alert('Error', `Gagal melakukan restore data:\n${error.message}`);
             } finally {
               setLoading(false);
             }

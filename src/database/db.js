@@ -2,21 +2,37 @@ import * as SQLite from 'expo-sqlite';
 
 const DB_NAME = 'binarynet.db';
 
-export const openDb = async () => {
-  return await SQLite.openDatabaseAsync(DB_NAME);
+// Singleton instance — satu koneksi dibuka sekali untuk seluruh app lifecycle
+let _db = null;
+
+export const getDb = async () => {
+  if (!_db) {
+    _db = await SQLite.openDatabaseAsync(DB_NAME);
+    // Aktifkan WAL dan foreign keys sekali saja saat pertama buka
+    await _db.execAsync(`
+      PRAGMA journal_mode = WAL;
+      PRAGMA foreign_keys = ON;
+    `);
+  }
+  return _db;
+};
+
+// Alias untuk backward compat dengan kode lama
+export const openDb = getDb;
+
+// Dapatkan path file database yang sebenarnya dari instance yang sudah terbuka
+// db.databasePath tersedia di expo-sqlite v16+
+export const getDatabasePath = async () => {
+  const db = await getDb();
+  return db.databasePath ?? null;
 };
 
 export const initDatabase = async () => {
   try {
-    const db = await openDb();
-    
-    // Aktifkan foreign keys
-    await db.execAsync(`PRAGMA foreign_keys = ON;`);
-    
+    const db = await getDb();
+
     // Create tables if not exist
     await db.execAsync(`
-      PRAGMA journal_mode = WAL;
-      
       CREATE TABLE IF NOT EXISTS vouchers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nama TEXT NOT NULL,
@@ -48,17 +64,25 @@ export const initDatabase = async () => {
     const row = await db.getFirstAsync('SELECT count(*) as count FROM vouchers');
     if (row && row.count === 0) {
       await db.runAsync(
-        'INSERT INTO vouchers (nama, harga_beli, harga_jual) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?), (?, ?, ?)',
-        [
-          '2 Ribu = 6 Jam', 1500, 2000,
-          '3 Ribu = 12 Jam', 2300, 3000,
-          '4 Ribu = 24 Jam', 3300, 4000,
-          '40 Ribu = 1 Bulan', 36000, 40000
-        ]
+        'INSERT INTO vouchers (nama, harga_beli, harga_jual) VALUES (?, ?, ?)',
+        ['2 Ribu = 6 Jam', 1500, 2000]
+      );
+      await db.runAsync(
+        'INSERT INTO vouchers (nama, harga_beli, harga_jual) VALUES (?, ?, ?)',
+        ['3 Ribu = 12 Jam', 2300, 3000]
+      );
+      await db.runAsync(
+        'INSERT INTO vouchers (nama, harga_beli, harga_jual) VALUES (?, ?, ?)',
+        ['4 Ribu = 24 Jam', 3300, 4000]
+      );
+      await db.runAsync(
+        'INSERT INTO vouchers (nama, harga_beli, harga_jual) VALUES (?, ?, ?)',
+        ['40 Ribu = 1 Bulan', 36000, 40000]
       );
       console.log('Default vouchers seeded');
     }
   } catch (error) {
     console.error('Failed to init database:', error);
+    throw error;
   }
 };
