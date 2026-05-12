@@ -29,7 +29,16 @@
     },
     "plugins": [
       "expo-sqlite",
-      "expo-document-picker"
+      "expo-document-picker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "shrinkResources": true
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {
