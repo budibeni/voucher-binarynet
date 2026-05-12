@@ -1,13 +1,27 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   View, FlatList, StyleSheet, TouchableOpacity, Share, RefreshControl
 } from 'react-native';
-import { Text, Chip, IconButton, Surface } from 'react-native-paper';
+import { Text } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTransactions } from '../hooks/useTransactions';
 import { formatRupiah, formatTanggal, isToday } from '../utils/format';
 import { useFocusEffect } from '@react-navigation/native';
+import { COLORS, SPACING, BORDER_RADIUS, SHADOWS, FONT_SIZE } from '../theme';
+
+const FilterChip = ({ label, active, onPress }) => (
+  <TouchableOpacity
+    style={[styles.chip, active && styles.chipActive]}
+    onPress={onPress}
+    activeOpacity={0.75}
+  >
+    <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+  </TouchableOpacity>
+);
 
 export default function RiwayatScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const { transactions, loading, loadTransactions, getTransactionDetails } = useTransactions();
 
   const [filterJenis, setFilterJenis] = React.useState('SEMUA');
@@ -46,78 +60,125 @@ export default function RiwayatScreen({ navigation }) {
       onPress={() => navigation.navigate('DetailTransaksi', { transactionId: tx.id })}
       activeOpacity={0.85}
     >
-      <Surface style={styles.card} elevation={2}>
-        <View style={styles.cardHeader}>
-          <View style={[styles.badge, tx.jenis === 'JUAL' ? styles.badgeJual : styles.badgeBeli]}>
-            <Text style={styles.badgeText}>{tx.jenis}</Text>
+      <View style={styles.card}>
+        {/* Colored top bar */}
+        <View style={[styles.cardBar, tx.jenis === 'JUAL' ? styles.cardBarJual : styles.cardBarBeli]} />
+
+        <View style={styles.cardBody}>
+          {/* Header row */}
+          <View style={styles.cardHeader}>
+            <View style={[styles.badge, tx.jenis === 'JUAL' ? styles.badgeJual : styles.badgeBeli]}>
+              <MaterialCommunityIcons
+                name={tx.jenis === 'JUAL' ? 'cash-fast' : 'cart-arrow-down'}
+                size={12}
+                color={COLORS.white}
+                style={{ marginRight: 4 }}
+              />
+              <Text style={styles.badgeText}>{tx.jenis}</Text>
+            </View>
+
+            <View style={styles.cardDateWrap}>
+              <MaterialCommunityIcons name="clock-outline" size={12} color={COLORS.textMuted} style={{ marginRight: 4 }} />
+              <Text style={styles.cardDate}>{formatTanggal(tx.created_at)}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.shareBtn}
+              onPress={() => navigation.navigate('DetailTransaksi', { transactionId: tx.id, autoShare: true })}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="share-variant-outline" size={18} color={COLORS.primary} />
+            </TouchableOpacity>
           </View>
-          <Text style={styles.cardDate}>{formatTanggal(tx.created_at)}</Text>
-          <IconButton
-            icon="share-variant"
-            size={20}
-            iconColor="#E10600"
-            onPress={() => navigation.navigate('DetailTransaksi', { transactionId: tx.id, autoShare: true })}
-            style={{ margin: 0 }}
-          />
-        </View>
 
-        {tx.caption ? (
-          <Text style={styles.cardCaption} numberOfLines={1}>{tx.caption}</Text>
-        ) : null}
+          {/* Caption */}
+          {tx.caption ? (
+            <View style={styles.captionRow}>
+              <MaterialCommunityIcons name="text" size={13} color={COLORS.textMuted} style={{ marginRight: 6 }} />
+              <Text style={styles.cardCaption} numberOfLines={1}>{tx.caption}</Text>
+            </View>
+          ) : null}
 
-        <View style={styles.cardFooter}>
-          <Text style={styles.grandTotalLabel}>Grand Total</Text>
-          <Text style={styles.grandTotalValue}>{formatRupiah(tx.grand_total)}</Text>
+          {/* Footer */}
+          <View style={styles.cardFooter}>
+            <Text style={styles.grandTotalLabel}>Grand Total</Text>
+            <Text style={styles.grandTotalValue}>{formatRupiah(tx.grand_total)}</Text>
+          </View>
         </View>
-      </Surface>
+      </View>
     </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
-      {/* Filter Jenis */}
-      <View style={styles.filterRow}>
-        {['SEMUA', 'BELI', 'JUAL'].map(f => (
-          <Chip
-            key={f}
-            selected={filterJenis === f}
-            onPress={() => setFilterJenis(f)}
-            selectedColor="#E10600"
-            style={[styles.chip, filterJenis === f && styles.chipActive]}
-            textStyle={filterJenis === f ? styles.chipTextActive : styles.chipText}
-          >
-            {f}
-          </Chip>
-        ))}
+      {/* Filter bar */}
+      <View style={styles.filterBar}>
+        <View style={styles.filterGroup}>
+          <Text style={styles.filterGroupLabel}>JENIS</Text>
+          <View style={styles.filterChips}>
+            {['SEMUA', 'BELI', 'JUAL'].map(f => (
+              <FilterChip
+                key={f}
+                label={f}
+                active={filterJenis === f}
+                onPress={() => setFilterJenis(f)}
+              />
+            ))}
+          </View>
+        </View>
 
-        <View style={styles.divider} />
+        <View style={styles.filterDivider} />
 
-        {/* Filter Tanggal */}
-        {['SEMUA', 'HARI INI'].map(f => (
-          <Chip
-            key={f}
-            selected={filterTanggal === f}
-            onPress={() => setFilterTanggal(f)}
-            selectedColor="#E10600"
-            style={[styles.chip, filterTanggal === f && styles.chipActive]}
-            textStyle={filterTanggal === f ? styles.chipTextActive : styles.chipText}
-          >
-            {f}
-          </Chip>
-        ))}
+        <View style={styles.filterGroup}>
+          <Text style={styles.filterGroupLabel}>TANGGAL</Text>
+          <View style={styles.filterChips}>
+            {['SEMUA', 'HARI INI'].map(f => (
+              <FilterChip
+                key={f}
+                label={f}
+                active={filterTanggal === f}
+                onPress={() => setFilterTanggal(f)}
+              />
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {/* Count info */}
+      <View style={styles.countBar}>
+        <Text style={styles.countText}>
+          {filteredTransactions.length} transaksi
+        </Text>
       </View>
 
       <FlatList
         data={filteredTransactions}
         keyExtractor={item => String(item.id)}
         renderItem={renderItem}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[
+          styles.list,
+          { paddingBottom: insets.bottom + 32 }
+        ]}
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={loadTransactions} colors={['#E10600']} />
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={loadTransactions}
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
+          />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Belum ada transaksi</Text>
+            <View style={styles.emptyIconWrap}>
+              <MaterialCommunityIcons name="history" size={40} color={COLORS.textMuted} />
+            </View>
+            <Text style={styles.emptyTitle}>Belum ada transaksi</Text>
+            <Text style={styles.emptyDesc}>
+              {filterJenis !== 'SEMUA' || filterTanggal !== 'SEMUA'
+                ? 'Coba ubah filter di atas'
+                : 'Transaksi akan muncul di sini'}
+            </Text>
           </View>
         }
       />
@@ -126,55 +187,192 @@ export default function RiwayatScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    backgroundColor: '#fff',
-    elevation: 2,
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
   },
-  chip: { backgroundColor: '#f0f0f0' },
-  chipActive: { backgroundColor: '#E10600' },
-  chipText: { color: '#555' },
-  chipTextActive: { color: '#fff', fontWeight: 'bold' },
-  divider: { width: 1, height: 24, backgroundColor: '#ddd', marginHorizontal: 2 },
-  list: { padding: 16, paddingBottom: 32 },
+
+  // Filter bar
+  filterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    gap: 12,
+  },
+  filterGroup: {
+    flex: 1,
+  },
+  filterGroupLabel: {
+    fontSize: FONT_SIZE.xs,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  filterChips: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  filterDivider: {
+    width: 1,
+    height: 44,
+    backgroundColor: COLORS.border,
+  },
+  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: COLORS.surfaceMuted,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  chipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  chipText: {
+    fontSize: FONT_SIZE.xs,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  chipTextActive: {
+    color: COLORS.white,
+  },
+
+  // Count bar
+  countBar: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 8,
+    backgroundColor: COLORS.background,
+  },
+  countText: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
+    fontWeight: '500',
+  },
+
+  // List
+  list: {
+    padding: SPACING.lg,
+    paddingTop: SPACING.sm,
+    gap: 10,
+  },
+
+  // Card
   card: {
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: 'hidden',
+    ...SHADOWS.xs,
+  },
+  cardBar: {
+    height: 3,
+  },
+  cardBarJual: { backgroundColor: COLORS.primary },
+  cardBarBeli: { backgroundColor: COLORS.info },
+  cardBody: {
+    padding: SPACING.lg,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
+    gap: 8,
   },
   badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 20,
-    marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: BORDER_RADIUS.full,
   },
-  badgeJual: { backgroundColor: '#E10600' },
-  badgeBeli: { backgroundColor: '#1565C0' },
-  badgeText: { color: '#fff', fontWeight: 'bold', fontSize: 12 },
-  cardDate: { flex: 1, fontSize: 12, color: 'gray' },
-  cardCaption: { fontSize: 13, color: '#555', marginBottom: 8, fontStyle: 'italic' },
+  badgeJual: { backgroundColor: COLORS.primary },
+  badgeBeli: { backgroundColor: COLORS.info },
+  badgeText: {
+    color: COLORS.white,
+    fontWeight: '700',
+    fontSize: FONT_SIZE.xs,
+  },
+  cardDateWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardDate: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
+  },
+  shareBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.primarySurface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  captionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    backgroundColor: COLORS.surfaceMuted,
+    borderRadius: BORDER_RADIUS.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  cardCaption: {
+    flex: 1,
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+  },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 8,
-    marginTop: 4,
+    borderTopColor: COLORS.border,
   },
-  grandTotalLabel: { fontSize: 14, color: 'gray' },
-  grandTotalValue: { fontSize: 18, fontWeight: 'bold', color: '#E10600' },
-  emptyContainer: { alignItems: 'center', marginTop: 60 },
-  emptyText: { fontSize: 16, color: 'gray' },
+  grandTotalLabel: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  grandTotalValue: {
+    fontSize: FONT_SIZE.xl,
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+
+  // Empty
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: COLORS.surfaceMuted,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 6,
+  },
+  emptyDesc: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+  },
 });

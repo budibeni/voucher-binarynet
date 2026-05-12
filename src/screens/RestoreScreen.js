@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Alert, ScrollView } from 'react-native';
-import { Text, Button, Surface } from 'react-native-paper';
+import { View, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import * as FileSystem from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLORS, SPACING, BORDER_RADIUS, SHADOWS, FONT_SIZE } from '../theme';
 
 const DB_DEST = `${FileSystem.documentDirectory}SQLite/binarynet.db`;
 
 export default function RestoreScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
 
@@ -19,8 +22,7 @@ export default function RestoreScreen({ navigation }) {
       });
 
       if (!result.canceled && result.assets?.length > 0) {
-        const file = result.assets[0];
-        setSelectedFile(file);
+        setSelectedFile(result.assets[0]);
       }
     } catch (error) {
       Alert.alert('Error', 'Gagal membuka file picker');
@@ -44,17 +46,13 @@ export default function RestoreScreen({ navigation }) {
           onPress: async () => {
             setLoading(true);
             try {
-              // Pastikan folder SQLite ada
               const sqliteDir = `${FileSystem.documentDirectory}SQLite`;
               const dirInfo = await FileSystem.getInfoAsync(sqliteDir);
               if (!dirInfo.exists) {
                 await FileSystem.makeDirectoryAsync(sqliteDir, { intermediates: true });
               }
 
-              await FileSystem.copyAsync({
-                from: selectedFile.uri,
-                to: DB_DEST,
-              });
+              await FileSystem.copyAsync({ from: selectedFile.uri, to: DB_DEST });
 
               Alert.alert(
                 'Restore Berhasil',
@@ -74,71 +72,244 @@ export default function RestoreScreen({ navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Surface style={styles.card} elevation={2}>
-        <MaterialCommunityIcons name="database-import" size={48} color="#1565C0" style={styles.icon} />
-        <Text style={styles.title}>Restore Data</Text>
-        <Text style={styles.desc}>
-          Pilih file backup (.db) dari penyimpanan Anda untuk memulihkan data. Semua data yang ada saat ini akan diganti.
-        </Text>
-
-        <View style={styles.warningBox}>
-          <MaterialCommunityIcons name="alert" size={18} color="#F57F17" style={{ marginRight: 8 }} />
-          <Text style={styles.warningText}>Proses restore tidak dapat dibatalkan setelah dikonfirmasi.</Text>
+    <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.iconSection}>
+          <View style={styles.iconCircle}>
+            <MaterialCommunityIcons name="database-import-outline" size={40} color={COLORS.info} />
+          </View>
+          <Text style={styles.pageTitle}>Restore Data</Text>
+          <Text style={styles.pageDesc}>
+            Pilih file backup (.db) dari penyimpanan Anda untuk memulihkan data. Semua data yang ada saat ini akan digantikan.
+          </Text>
         </View>
 
-        <Button
-          mode="outlined"
-          icon="folder-open"
-          onPress={pickFile}
-          style={styles.btnPilih}
-          contentStyle={{ paddingVertical: 6 }}
-        >
-          Pilih File Backup
-        </Button>
+        {/* Warning */}
+        <View style={styles.warningCard}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={20} color={COLORS.warning} />
+          <Text style={styles.warningText}>
+            Proses restore bersifat permanen dan tidak dapat dibatalkan setelah dikonfirmasi.
+          </Text>
+        </View>
 
-        {selectedFile && (
-          <View style={styles.fileInfo}>
-            <MaterialCommunityIcons name="file-check" size={20} color="#388E3C" />
-            <Text style={styles.fileName} numberOfLines={1}>{selectedFile.name}</Text>
-          </View>
-        )}
+        {/* File Picker */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Pilih File Backup</Text>
+          <Text style={styles.cardDesc}>File harus berformat .db dari backup Binary-Net</Text>
 
-        <Button
-          mode="contained"
-          icon="database-import"
+          <TouchableOpacity
+            style={styles.pickerBtn}
+            onPress={pickFile}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="folder-open-outline" size={22} color={COLORS.info} />
+            <Text style={styles.pickerBtnText}>Pilih File dari Penyimpanan</Text>
+          </TouchableOpacity>
+
+          {selectedFile && (
+            <View style={styles.fileBox}>
+              <View style={styles.fileIconWrap}>
+                <MaterialCommunityIcons name="file-check-outline" size={22} color={COLORS.success} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fileName} numberOfLines={1}>{selectedFile.name}</Text>
+                <Text style={styles.fileSize}>
+                  {selectedFile.size ? `${(selectedFile.size / 1024).toFixed(1)} KB` : 'File terpilih'}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setSelectedFile(null)}>
+                <MaterialCommunityIcons name="close-circle-outline" size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Footer */}
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+        <TouchableOpacity
+          style={[
+            styles.btnRestore,
+            (!selectedFile || loading) && styles.btnDisabled,
+            selectedFile && styles.btnRestoreActive,
+          ]}
           onPress={handleRestore}
-          loading={loading}
           disabled={loading || !selectedFile}
-          style={[styles.btnRestore, !selectedFile && { opacity: 0.5 }]}
-          contentStyle={{ paddingVertical: 6 }}
+          activeOpacity={0.85}
         >
-          {loading ? 'Memproses...' : 'Restore Sekarang'}
-        </Button>
-      </Surface>
-    </ScrollView>
+          {loading ? (
+            <ActivityIndicator size="small" color={COLORS.white} />
+          ) : (
+            <MaterialCommunityIcons name="database-import-outline" size={22} color={COLORS.white} />
+          )}
+          <Text style={styles.btnText}>
+            {loading ? 'Memproses...' : 'Restore Sekarang'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  content: { padding: 20, paddingBottom: 40 },
-  card: { borderRadius: 16, padding: 24, backgroundColor: '#fff', alignItems: 'center' },
-  icon: { marginBottom: 16 },
-  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, color: '#222' },
-  desc: { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 22, marginBottom: 16 },
-  warningBox: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFF8E1', borderRadius: 10, padding: 12,
-    marginBottom: 20, width: '100%',
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
   },
-  warningText: { flex: 1, fontSize: 13, color: '#F57F17' },
-  btnPilih: { width: '100%', marginBottom: 14, borderColor: '#1565C0' },
-  fileInfo: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#E8F5E9', borderRadius: 8, padding: 10,
-    width: '100%', marginBottom: 16,
+  content: {
+    padding: SPACING.lg,
+    paddingTop: SPACING.xl,
+    gap: 16,
   },
-  fileName: { flex: 1, fontSize: 13, color: '#388E3C', marginLeft: 8 },
-  btnRestore: { width: '100%', backgroundColor: '#E10600' },
+
+  // Header
+  iconSection: {
+    alignItems: 'center',
+    paddingVertical: SPACING.xl,
+    gap: 12,
+  },
+  iconCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: COLORS.infoSurface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#BFDBFE',
+    ...SHADOWS.sm,
+  },
+  pageTitle: {
+    fontSize: FONT_SIZE.xxl,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  pageDesc: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 8,
+  },
+
+  // Warning
+  warningCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: COLORS.warningSurface,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: SPACING.lg,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.warning,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+
+  // Card
+  card: {
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.lg,
+    gap: 12,
+    ...SHADOWS.xs,
+  },
+  cardTitle: {
+    fontSize: FONT_SIZE.base,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  cardDesc: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textMuted,
+  },
+
+  // Picker
+  pickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1.5,
+    borderColor: COLORS.info,
+    borderStyle: 'dashed',
+    backgroundColor: COLORS.infoSurface,
+  },
+  pickerBtnText: {
+    fontSize: FONT_SIZE.base,
+    fontWeight: '600',
+    color: COLORS.info,
+  },
+
+  // File box
+  fileBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.successSurface,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    padding: SPACING.md,
+  },
+  fileIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fileName: {
+    fontSize: FONT_SIZE.base,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  fileSize: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+
+  // Footer
+  footer: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    backgroundColor: COLORS.white,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    ...SHADOWS.md,
+  },
+  btnRestore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 15,
+    borderRadius: BORDER_RADIUS.lg,
+    backgroundColor: COLORS.border,
+  },
+  btnRestoreActive: {
+    backgroundColor: COLORS.primary,
+    ...SHADOWS.sm,
+  },
+  btnDisabled: { opacity: 0.5 },
+  btnText: {
+    fontSize: FONT_SIZE.base,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
 });
